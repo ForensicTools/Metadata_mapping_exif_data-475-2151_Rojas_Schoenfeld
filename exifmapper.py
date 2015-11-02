@@ -4,42 +4,46 @@ import re
 
 Final_GPS_Coords = {}		
 JPG_Files = []
+#Search for JPG files in the filesystem
 for root, dir, files in os.walk(str(sys.argv[1])):
 		for fp in files:
 			if ".JPG" in fp.upper():
 				fn = root+'/'+fp
 				JPG_Files.append(fn)
-
+#Search for GPS data in the JPG Files
 for jpg in JPG_Files:
 	#print ("\nFound a JPG in: " + jpg + " searching for GPS data...\n")
 	current_cir = "\"" + os.getcwd() + "\""
 	command = os.getcwd() + "\\" + "exiftool.exe " + "\"" + jpg +"\""
+	#Execute exiftool.exe which should be in the same local directory and store the output
 	output = subprocess.Popen(command, stdout=subprocess.PIPE)
 	exifdata = filter(lambda x:len(x)>0,(line.strip() for line in output.stdout))
-	#print ("Checking if " + jpg + " has any GPS information in its EXIF DATA\n\n")
-
+	#Create a new list for GPS data
 	GPS = []
 	for line in exifdata:
 		if b"GPS" in line:
 			line = line.decode(encoding="UTF-8", errors="strict")
 			GPS.append(line)
-
+	#Create a new dictionary for GPS information where the GPS Position is the key and the 
+	#coordinate is the value 
 	GPS_info = {}
 	for coord in GPS: 
 		coord = coord.split(':')
 		coord[0] = re.sub(r'\s*$', '', coord[0], flags=re.IGNORECASE)
 		coord[1] = re.sub(r'deg', '', coord[1], flags=re.IGNORECASE)
+		#create key value pairs for accessing GPS information
 		GPS_info[coord[0]] = coord[1]
-
+	#See if the JPG file actually had any GPS data inside of it
+	#Use the filename as a key and make the coordinates the value
 	if 'GPS Position' in GPS_info:
 		Final_GPS_Coords[jpg] = GPS_info['GPS Position']
 	else:
 		continue
-
+#Create markers for our final Google Maps URL
 base_marker = "markers=color:blue|label:"
 marker = ""
 #Create the URL parameter to list all of the markers for the locations we found
-x=0
+x=0 #A counter to see how many coordinates/files we found
 Label_Tracker ={}
 #Create the URL parameter to list all of the markers for the locations we found
 for coord in Final_GPS_Coords.values():
@@ -48,29 +52,33 @@ for coord in Final_GPS_Coords.values():
 	marker += base_marker + x + "|" + coord + "&"
 	Label_Tracker[x] = coord
 	x=int(x)
-
+#Remove any extra trailing "&" after crafting the marker URL
 marker = re.sub(r'&$', '', marker, flags=re.IGNORECASE)
 x = str(x)
 print ("Found " + x + " files with GPS coordinates\n\n")
 
 # Ready to plug the coordinates into google 
-key = "key=AIzaSyBhnG9rbyb8Z4hS88tiQ3qqoZr9a4Hr48Y"
+key = "key=$ENTER_YOUR_GOOGLE_MAPS_STATIC_API_KEY"
 baseurl = "https://maps.googleapis.com/maps/api/staticmap?" + key
 scale = "scale=2"
 size = "size=1024x1024"
 
+#Craft our Final Google Maps URL and print out the files we found
+#Labe_Tracker is so that we can create Labels on the map to associate which file is where on the map
+#We need to match the coordinates from both of our dictionaries so if they're equal we'll be able to 
+#match the appropriate labels so that our labels are accurate
 for jpg in Final_GPS_Coords:
 	for x in Label_Tracker:
-		if Final_GPS_Coords[jpg] == Label_Tracker[x]:
+		if Final_GPS_Coords[jpg] == Label_Tracker[x]: #If we find two coordinates that are equal, proceed
 			print ("=======================================================================================")
 			print ("File Number " +  x  )
-			print ("Value of " + x )
 			print ("Raw GPS " + Final_GPS_Coords[jpg])
 			per_coord_url = baseurl + "&" + scale + "&" + size + "&" + base_marker + Label_Tracker[x]
 			per_coord_url = re.sub(r'label:\s', '', per_coord_url, flags=re.IGNORECASE)
 			print ("File   ----->  " + jpg + "\nGoogle Map Link:  " + per_coord_url )
-			per_coord_url = ""
+			per_coord_url = "" 
 			print ("=======================================================================================\n\n\n")
 
+#Put together all of the strings for the final URL
 Final_url = baseurl + "&" + scale + "&" + size + "&" + marker
 print ("THE URL FOR YOUR MAP:\n" + Final_url)
