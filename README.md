@@ -14,6 +14,8 @@ Next, download the python libraries used in exifmapper.py if they are not instal
 In order to use the tool you need to register for a Google Maps Static API key.  
 Around line 57 you should enter in your key.  
 
+..Still need to add command line help options..
+
 
 
 
